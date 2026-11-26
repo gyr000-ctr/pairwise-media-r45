@@ -20,8 +20,13 @@ def _t():
 
 CASES = [
     ("empty", lambda: _t().current() is None),
-    ("add", lambda: (_t().add('a', 10.0), _t().current())[1] == 'a'),
-    ("half", lambda: (_t().add('a', 10.0), _t().tick(1.0), _t().threat('a'))[2] < 10.0),
+    # 修正上游用例笔误：原 lambda 在元组里两次调用 _t()，current() 落在全新空表上，
+    # 任何正常的有状态实现都不可能通过；改为与 hysteresis/switch 相同的单实例写法，
+    # 断言本身（== 'a'）保持不变。
+    ("add", lambda: (lambda t: (t.add('a', 10.0), t.current())[1] == 'a')(_t())),
+    # 同理，原写法三次调用 _t()，threat('a') 落在第三张空表上（靠未知目标返回 0.0
+    # 空过）；改为单实例后才真正检验半衰期衰减，断言（< 10.0）不变。
+    ("half", lambda: (lambda t: (t.add('a', 10.0), t.tick(1.0), t.threat('a'))[2] < 10.0)(_t())),
     ("hysteresis", lambda: (lambda t: (t.add('a', 10.0), t.add('b', 10.5), t.current())[2] == 'a')(_t())),
     ("switch", lambda: (lambda t: (t.add('a', 10.0), t.add('b', 12.0), t.current())[2] == 'b')(_t())),
     ("bad_half", lambda: _raises(lambda: threatdecay.ThreatDecay(0.0))),
